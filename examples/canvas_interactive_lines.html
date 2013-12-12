@@ -18,11 +18,13 @@
 		<script src="../build/three.js"></script>
 
 		<script src="js/libs/stats.min.js"></script>
+		
+		<script src="fonts/helvetiker_regular.typeface.js"></script>
 
 		<script>
 
 			var container, stats;
-			var camera, scene, projector, raycaster, renderer, parentTransform, sphereInter;
+			var camera, scene, projector, raycaster, renderer, parentTransform, sphereInter, text3d, text, spritey;
 
 			var mouse = new THREE.Vector2();
 			var radius = 100, theta = 0;
@@ -57,6 +59,24 @@
 					context.fill();
 
 				}
+				
+/*
+				text3d = new THREE.TextGeometry( 'currentIntersected.userData.name', {
+					size: 80,
+					height: 20,
+					curveSegments: 2,
+					font: "helvetiker"
+				});
+
+				text3d.computeBoundingBox();
+				var centerOffset = -0.5 * ( text3d.boundingBox.max.x - text3d.boundingBox.min.x );
+
+				var textMaterial = new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, overdraw: true } );
+				text = new THREE.Mesh( text3d, textMaterial );
+				text.visible = false;
+				scene.add( text );
+				*/
+
 
 				sphereInter = new THREE.Sprite(
 					new THREE.SpriteCanvasMaterial( {
@@ -115,9 +135,15 @@
 					object.scale.x = Math.random() + 0.5;
 					object.scale.y = Math.random() + 0.5;
 					object.scale.z = Math.random() + 0.5;
+					
+					object.castShadow = true;
+					object.userData = {
+						name: 'bk' + (parseInt(Math.random() * 9)).toString(),
+						otherStuff: [1,2,3,4]
+					}
 
 					parentTransform.add( object );
-
+					
 				}
 
 				scene.add(parentTransform);
@@ -177,14 +203,12 @@
 			function render() {
 
 				theta += 0.1;
-
 				camera.position.x = radius * Math.sin( THREE.Math.degToRad( theta ) );
 				camera.position.y = radius * Math.sin( THREE.Math.degToRad( theta ) );
 				camera.position.z = radius * Math.cos( THREE.Math.degToRad( theta ) );
 				camera.lookAt( scene.position );
 
 				// find intersections
-
 				var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
 				projector.unprojectVector( vector, camera );
 
@@ -193,37 +217,128 @@
 				var intersects = raycaster.intersectObjects( parentTransform.children, true);
 
 				if ( intersects.length > 0 ) {
-
 					if ( currentIntersected !== undefined ) {
-
 						currentIntersected.material.linewidth = 1;
-
 					}
-
 					currentIntersected = intersects[ 0 ].object;
 					currentIntersected.material.linewidth = 5;
-
-					sphereInter.visible = true;
-					sphereInter.position.copy( intersects[ 0 ].point );
-
+/*
+					scene.remove(text);
+					text3d = new THREE.TextGeometry( currentIntersected.userData.name, {
+						size: 12,
+						height: 2,
+						curveSegments: 5,
+						font: "helvetiker"
+					});
+					text3d.computeBoundingBox();
+					// var centerOffset = -0.5 * ( text3d.boundingBox.max.x - text3d.boundingBox.min.x );
+					// var textMaterial = new THREE.MeshBasicMaterial( { color: Math.random() * 0xffffff, overdraw: true } );
+					var textMaterial = new THREE.MeshBasicMaterial( { color: currentIntersected.material.color, overdraw: true } );
+					text = new THREE.Mesh( text3d, textMaterial );
+					text.visible = true;
+					text.position.copy(intersects[ 0 ].point);
+					text.rotation = camera.rotation;
+					scene.add(text)
+					// face the camera
+					text.lookAt( camera.position );
+*/				
+					scene.remove(spritey)
+					spritey = makeTextSprite(currentIntersected.userData.name, {borderThickness:0, textColor : currentIntersected.material.color.getStyle()});
+					spritey.position.copy( intersects[ 0 ].point );
+					scene.add(spritey);
 				} else {
 
 					if ( currentIntersected !== undefined ) {
-
 						currentIntersected.material.linewidth = 1;
-
 					}
-
 					currentIntersected = undefined;
-
+					// text.visible = false;
+					// scene.remove(text);
+					scene.remove(spritey);
 					sphereInter.visible = false;
-
 				}
-
 				renderer.render( scene, camera );
-
 			}
-
+			
+			function makeTextSprite( message, parameters ){
+				if ( parameters === undefined ) parameters = {};
+				
+				var fontface = parameters.hasOwnProperty("fontface") ? 
+					parameters["fontface"] : "Arial";
+				
+				var fontsize = parameters.hasOwnProperty("fontsize") ? 
+					parameters["fontsize"] : 38;
+				
+				var borderThickness = parameters.hasOwnProperty("borderThickness") ? 
+					parameters["borderThickness"] : 4;
+				
+				var borderColor = parameters.hasOwnProperty("borderColor") ?
+					parameters["borderColor"] : { r:0, g:0, b:0, a:0.0 };
+				
+				var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
+					parameters["backgroundColor"] : { r:255, g:255, b:255, a:0.0 };
+			
+				// var spriteAlignment = THREE.SpriteAlignment.topLeft;
+			
+				var canvas = document.createElement('canvas');
+				var context = canvas.getContext('2d');
+				
+				context.font = "Bold " + fontsize + "px " + fontface;
+				
+			    
+				// get size data (height depends only on font size)
+				var metrics = context.measureText( message );
+				var textWidth = metrics.width;
+				
+				// background color
+				context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + ","
+											  + backgroundColor.b + "," + backgroundColor.a + ")";
+				// border color
+				context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + ","
+											  + borderColor.b + "," + borderColor.a + ")";
+			
+				context.lineWidth = borderThickness;
+				roundRect(context, 0, 0, 0, 0, 1);
+				// roundRect(context, borderThickness/2, borderThickness/2, textWidth + borderThickness, fontsize * 1.4 + borderThickness, 6);
+				// 1.4 is extra height factor for text below baseline: g,j,p,q.
+				
+				
+				context.fillStyle = parameters.textColor || "rgba(0, 0, 0, 1.0)";
+			
+				context.fillText( message, 80, 80);
+				// context.fillText( message, borderThickness, fontsize + borderThickness);
+				
+				// canvas contents will be used for a texture
+				var texture = new THREE.Texture(canvas) 
+				texture.needsUpdate = true;
+			
+				var spriteMaterial = new THREE.SpriteMaterial( 
+					{ map: texture, useScreenCoordinates: false, /*alignment: spriteAlignment*/ } );
+				var sprite = new THREE.Sprite( spriteMaterial );
+				sprite.scale.set(50,25,1);
+				// sprite.scale.set(100,50,1.0);
+				// console.log(context);
+				return sprite;	
+			}
+			function roundRect(ctx, x, y, w, h, r) 
+			{
+			    ctx.beginPath();
+			    ctx.moveTo(x+r, y);
+			    ctx.lineTo(x+w-r, y);
+			    ctx.quadraticCurveTo(x+w, y, x+w, y+r);
+			    ctx.lineTo(x+w, y+h-r);
+			    ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+			    ctx.lineTo(x+r, y+h);
+			    ctx.quadraticCurveTo(x, y+h, x, y+h-r);
+			    ctx.lineTo(x, y+r);
+			    ctx.quadraticCurveTo(x, y, x+r, y);
+			    ctx.closePath();
+			    ctx.fill();
+				ctx.stroke();   
+				// ctx.canvas.style.width = 20;
+				// ctx.canvas.style.height = 20;
+				console.log(ctx);
+			}
 		</script>
 
 	</body>
