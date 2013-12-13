@@ -11,16 +11,35 @@
 				margin: 0px;
 				overflow: hidden;
 			}
+			
+			.flipH{
+				-moz-transform: scaleX(-1);
+			    -o-transform: scaleX(-1);
+			    -webkit-transform: scaleX(-1);
+			    transform: scaleX(-1);
+			    filter: FlipH;
+			    -ms-filter: "FlipH";
+			}
+			.flipV{
+			    -moz-transform: scaleY(-1);
+			    -o-transform: scaleY(-1);
+			    -webkit-transform: scaleY(-1);
+			    transform: scaleY(-1);
+			    filter: FlipV;
+			    -ms-filter: "FlipV";
+			}
 		</style>
 	</head>
 	<body>
 
-		<script src="../build/three.js"></script>
 
+		<script src="../build/three.js"></script>
 		<script src="js/libs/stats.min.js"></script>
 		
+		<script src="js/controls/OrbitControls.js"></script>
+		
 		<script src="fonts/helvetiker_regular.typeface.js"></script>
-
+		
 		<script>
 
 			var container, stats;
@@ -30,6 +49,21 @@
 			var radius = 100, theta = 0;
 
 			var currentIntersected;
+			
+			var cameraControls;
+			var WIDTH = window.innerWidth / window.innerHeight, 
+				HEIGHT = 2;
+				
+			var VIEW_ANGLE = 45;
+			var ASPECT = WIDTH / HEIGHT;
+			var NEAR = 1;
+			var FAR = 500;
+				// VIEW_ANGLE = 70,
+				// ASPECT = window.innerWidth / window.innerHeight,
+				// NEAR = 1,
+				// FAR = 10000;
+				
+			var texture;
 
 			init();
 			animate();
@@ -46,19 +80,122 @@
 				info.style.textAlign = 'center';
 				info.innerHTML = '<a href="http://threejs.org" target="_blank">three.js</a> canvas - interactive lines';
 				container.appendChild( info );
+				
+				// renderer
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( WIDTH, HEIGHT );
 
-				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 1, 10000 );
+				renderer.autoClear = true;
+				renderer.setClearColor( 0xffffff, 1 );
+				container.appendChild( renderer.domElement );
+
+				camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
+				// camera = new THREE.PerspectiveCamera( 70, window.innerWcidth / window.innerHeight, 1, 10000 );
+				camera.position.set( 0, 75, 160 );
 
 				scene = new THREE.Scene();
+				
+				img = document.createElement('img');
+				img.src = 'textures/water.jpg';
+				texture = new THREE.Texture( img );
+				texture.minFilter = THREE.LinearFilter;
+				texture.magFilter = THREE.LinearFilter;
+				texture.format = THREE.RGBFormat;
+				texture.generateMipmaps = false;
+				
+				var parameters = { color: 0x666beb, map: texture },
+					material_base = new THREE.MeshLambertMaterial( parameters );
 
-				var PI2 = Math.PI * 2;
-				var program = function ( context ) {
+				// renderer.initMaterial( material_base, scene.__lights, scene.fog );
 
-					context.beginPath();
-					context.arc( 0, 0, 1, 0, PI2, true );
-					context.fill();
+				// var PI2 = Math.PI * 2;
+				// var program = function ( context ) {
+					// context.beginPath();
+					// context.arc( 0, 0, 1, 0, PI2, true );
+					// context.fill();
+				// }
+				
+				cameraControls = new THREE.OrbitControls(camera, renderer.domElement);
+				cameraControls.target.set( 0, 40, 0);
+				cameraControls.maxDistance = 600;
+				cameraControls.minDistance = 10;
+				cameraControls.update();
+				
+				var planeGeo = new THREE.PlaneGeometry( 150.1, 150.1 );
+				var geometry2 = planeGeo.clone(); // CHANGED
+			    geometry2.applyMatrix( new THREE.Matrix4().makeRotationY( Math.PI ) ); // CHANGED
+			    THREE.GeometryUtils.merge( planeGeo, geometry2, 1 ); // CHANGED
+				
+				// var texture = THREE.ImageUtils.loadTexture( "textures/758px-Canestra_di_frutta_(Caravaggio).jpg" );
+				
+				var image =  new Image();
+			    var texture = new THREE.Texture(image);
+			
+			    image.addEventListener( 'load', function ( event ) {
+			        texture.needsUpdate = true;
+			        drawCanvas();
+			    });
+			    
+			    var imagesrc = "textures/758px-Canestra_di_frutta_(Caravaggio).jpg" 
+			    image.src = ( imagesrc );
 
+			    // var reversed = new THREE.MeshLambertMaterial({
+
+			    // image2.className = 'flipH';
+			    // image2.addEventListener( 'load', function ( event ) {
+			        // texture2.needsUpdate = true;
+			    // });
+				
+				window['canvas'] = document.createElement('canvas');
+				function drawCanvas(){
+					var ctx = canvas.getContext('2d');
+					// ctx.save();
+					// ctx.scale(-1,-1);
+					ctx.drawImage(image,0,0);
+					// ctx.restore();
 				}
+				
+			    // var reversed = new THREE.MeshBasicMaterial({
+			        // map: THREE.ImageUtils.loadTexture( imagesrc )
+			    // });
+				
+			    // var texture2 = new THREE.Texture(image2);
+			    var reversed = new THREE.Texture(canvas);
+					reversed.needsUpdate = true;
+				
+				var textures = [
+			          new THREE.MeshBasicMaterial({map: texture, side: THREE.FrontSide}),
+			          // reversed
+					  new THREE.MeshBasicMaterial({map: reversed, side: THREE.FrontSide})
+			    ];
+			    
+				var imageMaterial = new THREE.MeshFaceMaterial(textures);
+				// var imageMaterial = new THREE.MeshPhongMaterial({map: texture});
+
+				var mesh = new THREE.Mesh( planeGeo, imageMaterial );
+				mesh.rotateX( - Math.PI / 2 );
+				
+				scene.add( mesh );
+				
+				// lights
+				// var light = new THREE.AmbientLight( 0x404040 ); // soft white light 
+				// scene.add( light );
+				
+				var mainLight = new THREE.PointLight( 0xcccccc, 1.5, 250 );
+				mainLight.position.y = 60;
+				scene.add( mainLight );
+// 
+				var greenLight = new THREE.PointLight( 0x00ff00, 0.25, 1000 );
+				greenLight.position.x = 55;
+				// greenLight.position.set( 550, 50, 0 );
+				scene.add( greenLight );
+				
+				// walls
+				// var planeTop = new THREE.Mesh( planeGeo, material_base );
+				// planeTop.position.y = 100;
+				// planeTop.rotateX( Math.PI / 2 );
+				// planeTop.doubleSided = true;
+				// scene.add( planeTop );
 				
 /*
 				text3d = new THREE.TextGeometry( 'currentIntersected.userData.name', {
@@ -78,15 +215,15 @@
 				*/
 
 
-				sphereInter = new THREE.Sprite(
-					new THREE.SpriteCanvasMaterial( {
-						color: 0xff0000,
-						program: program }
-					)
-				);
-				sphereInter.scale.x = sphereInter.scale.y = 5;
-				sphereInter.visible = false;
-				scene.add( sphereInter );
+				// sphereInter = new THREE.Sprite(
+					// new THREE.SpriteCanvasMaterial( {
+						// color: 0xff0000,
+						// program: program }
+					// )
+				// );
+				// sphereInter.scale.x = sphereInter.scale.y = 5;
+				// sphereInter.visible = false;
+				// scene.add( sphereInter );
 
 				var geometry = new THREE.Geometry();
 
@@ -94,16 +231,12 @@
 				var direction = new THREE.Vector3();
 
 				for ( var i = 0; i < 100; i ++ ) {
-
 					direction.x += Math.random() - 0.5;
 					direction.y += Math.random() - 0.5;
 					direction.z += Math.random() - 0.5;
 					direction.normalize().multiplyScalar( 5 );
-
 					point.add( direction );
-
 					geometry.vertices.push( point.clone() );
-
 				}
 
 				parentTransform = new THREE.Object3D();
@@ -120,7 +253,6 @@
 				parentTransform.scale.z = Math.random() + 0.5;
 
 				for ( var i = 0; i < 50; i ++ ) {
-
 					var type = Math.random() > 0.5 ? THREE.LineStrip : THREE.LinePieces;
 					var object = new THREE.Line( geometry, new THREE.LineBasicMaterial( { color: Math.random() * 0xffffff } ), type );
 					
@@ -143,7 +275,6 @@
 					}
 
 					parentTransform.add( object );
-					
 				}
 
 				scene.add(parentTransform);
@@ -152,7 +283,7 @@
 				raycaster = new THREE.Raycaster();
 				raycaster.linePrecision = 3;
 
-				renderer = new THREE.CanvasRenderer();
+				// renderer = new THREE.CanvasRenderer();
 				renderer.sortObjects = false;
 				renderer.setSize( window.innerWidth, window.innerHeight );
 
@@ -172,18 +303,14 @@
 			}
 
 			function onWindowResize() {
-
 				camera.aspect = window.innerWidth / window.innerHeight;
 				camera.updateProjectionMatrix();
 
 				renderer.setSize( window.innerWidth, window.innerHeight );
-
 			}
 
 			function onDocumentMouseMove( event ) {
-
-				event.preventDefault();
-
+				// event.preventDefault();
 				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
 				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
 
@@ -192,7 +319,6 @@
 			//
 
 			function animate() {
-
 				requestAnimationFrame( animate );
 
 				render();
@@ -201,12 +327,11 @@
 			}
 
 			function render() {
-
-				theta += 0.1;
-				camera.position.x = radius * Math.sin( THREE.Math.degToRad( theta ) );
-				camera.position.y = radius * Math.sin( THREE.Math.degToRad( theta ) );
-				camera.position.z = radius * Math.cos( THREE.Math.degToRad( theta ) );
-				camera.lookAt( scene.position );
+				// theta += 0.1;
+				// camera.position.x = radius * Math.sin( THREE.Math.degToRad( theta ) );
+				// camera.position.y = radius * Math.sin( THREE.Math.degToRad( theta ) );
+				// camera.position.z = radius * Math.cos( THREE.Math.degToRad( theta ) );
+				// camera.lookAt( scene.position );
 
 				// find intersections
 				var vector = new THREE.Vector3( mouse.x, mouse.y, 1 );
@@ -252,92 +377,53 @@
 						currentIntersected.material.linewidth = 1;
 					}
 					currentIntersected = undefined;
+					scene.remove(spritey);
 					// text.visible = false;
 					// scene.remove(text);
-					scene.remove(spritey);
-					sphereInter.visible = false;
+					// sphereInter.visible = false;
 				}
+				
+				cameraControls.update();
+				
 				renderer.render( scene, camera );
 			}
 			
 			function makeTextSprite( message, parameters ){
 				if ( parameters === undefined ) parameters = {};
 				
-				var fontface = parameters.hasOwnProperty("fontface") ? 
-					parameters["fontface"] : "Arial";
-				
-				var fontsize = parameters.hasOwnProperty("fontsize") ? 
-					parameters["fontsize"] : 38;
-				
-				var borderThickness = parameters.hasOwnProperty("borderThickness") ? 
-					parameters["borderThickness"] : 4;
-				
-				var borderColor = parameters.hasOwnProperty("borderColor") ?
-					parameters["borderColor"] : { r:0, g:0, b:0, a:0.0 };
-				
-				var backgroundColor = parameters.hasOwnProperty("backgroundColor") ?
-					parameters["backgroundColor"] : { r:255, g:255, b:255, a:0.0 };
-			
-				// var spriteAlignment = THREE.SpriteAlignment.topLeft;
+				var fontface = parameters.hasOwnProperty("fontface") ? parameters["fontface"] : "Arial";
+				var fontsize = parameters.hasOwnProperty("fontsize") ? parameters["fontsize"] : 38;
+				var borderThickness = parameters.hasOwnProperty("borderThickness") ? parameters["borderThickness"] : 4;
+				var borderColor = parameters.hasOwnProperty("borderColor") ? parameters["borderColor"] : { r:0, g:0, b:0, a:0.0 };				
+				var backgroundColor = parameters.hasOwnProperty("backgroundColor") ? parameters["backgroundColor"] : { r:255, g:255, b:255, a:0.0 };			
 			
 				var canvas = document.createElement('canvas');
 				var context = canvas.getContext('2d');
 				
 				context.font = "Bold " + fontsize + "px " + fontface;
-				
 			    
 				// get size data (height depends only on font size)
 				var metrics = context.measureText( message );
 				var textWidth = metrics.width;
 				
 				// background color
-				context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + ","
-											  + backgroundColor.b + "," + backgroundColor.a + ")";
-				// border color
-				context.strokeStyle = "rgba(" + borderColor.r + "," + borderColor.g + ","
-											  + borderColor.b + "," + borderColor.a + ")";
+				context.fillStyle   = "rgba(" + backgroundColor.r + "," + backgroundColor.g + "," + backgroundColor.b + "," + backgroundColor.a + ")";
 			
 				context.lineWidth = borderThickness;
-				roundRect(context, 0, 0, 0, 0, 1);
-				// roundRect(context, borderThickness/2, borderThickness/2, textWidth + borderThickness, fontsize * 1.4 + borderThickness, 6);
-				// 1.4 is extra height factor for text below baseline: g,j,p,q.
-				
 				
 				context.fillStyle = parameters.textColor || "rgba(0, 0, 0, 1.0)";
 			
 				context.fillText( message, 80, 80);
-				// context.fillText( message, borderThickness, fontsize + borderThickness);
 				
 				// canvas contents will be used for a texture
-				var texture = new THREE.Texture(canvas) 
+				var texture = new THREE.Texture(canvas);
 				texture.needsUpdate = true;
 			
 				var spriteMaterial = new THREE.SpriteMaterial( 
 					{ map: texture, useScreenCoordinates: false, /*alignment: spriteAlignment*/ } );
 				var sprite = new THREE.Sprite( spriteMaterial );
 				sprite.scale.set(50,25,1);
-				// sprite.scale.set(100,50,1.0);
-				// console.log(context);
 				return sprite;	
-			}
-			function roundRect(ctx, x, y, w, h, r) 
-			{
-			    ctx.beginPath();
-			    ctx.moveTo(x+r, y);
-			    ctx.lineTo(x+w-r, y);
-			    ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-			    ctx.lineTo(x+w, y+h-r);
-			    ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-			    ctx.lineTo(x+r, y+h);
-			    ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-			    ctx.lineTo(x, y+r);
-			    ctx.quadraticCurveTo(x, y, x+r, y);
-			    ctx.closePath();
-			    ctx.fill();
-				ctx.stroke();   
-				// ctx.canvas.style.width = 20;
-				// ctx.canvas.style.height = 20;
-				console.log(ctx);
 			}
 		</script>
 
